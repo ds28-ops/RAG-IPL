@@ -108,6 +108,9 @@ table does not provide the information to answer the question, answer
 # Streamlit App Interface
 st.title("IPL Stats Chatbot")
 st.write("Ask your IPL query and get statistics!")
+st.write("Created by [Dhruv Sridhar](https://www.linkedin.com/in/dhruv-sr/)")
+st.write("Example queries: Who are the top 5 run-scorers in IPL 2021?, Who are the top 10 bowlers with lowest economy rate in IPL history with a minimum of 1000 balls bowled?")
+st.write("Note: This demo app might not work for all queries. Currently supports only a subset of IPL queries.")
 
 user_query = st.text_area("Enter your IPL query:", height=150)
 
