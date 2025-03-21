@@ -19,4 +19,21 @@ This project introduces an innovative cricket analytics platform, powered by Ret
 **Deployment:**
 - Successfully deployed and publicly hosted the interactive application via Streamlit.
 
+
+Here are a few examples-
+1. 
+<img width="1008" alt="image" src="https://github.com/user-attachments/assets/dea4d69e-ddaf-4ec6-bcde-1d50cc537fd0" />
+
+
+2. <img width="1050" alt="image" src="https://github.com/user-attachments/assets/43fe1a14-caf0-4eec-beb4-d0e836bdc2e5" />
+
+3. <img width="977" alt="image" src="https://github.com/user-attachments/assets/752c01b7-04f8-430a-bafe-9091b40b36c2" />
+
+4. <img width="1076" alt="image" src="https://github.com/user-attachments/assets/4a1dc24d-fdde-4413-8e9b-9a6d808d224a" />
+
+5. <img width="1028" alt="image" src="https://github.com/user-attachments/assets/9402fa98-eadc-4e38-b952-8f4ed0e9ffb5" />
+
+
+
+
 🔗 **Explore the live project:** [IPL RAG Analytics Dashboard](https://rag-ipl-95bh7zfsco4zduaxnawah4.streamlit.app/)
