@@ -39,10 +39,10 @@ The team names are:
 
 Here are the formulas for basic cricket statistics that you should use if relevant to the user's query:
 
-- **Batting Average** = (Total Runs Scored) / (Number of Times Dismissed)  
-- **Batting Strike Rate** = (Total Runs Scored / Total Balls Faced) * 100  
-- **Bowling Economy Rate** = (Total Runs Conceded) / ((Balls Bowled / 6))  
-- **Bowling Strike Rate** = (Total Balls Bowled) / (Total Wickets Taken)  
+Batting Average = (Total Runs Scored) / (Number of Times Dismissed)  
+Batting Strike Rate = (Total Runs Scored / Total Balls Faced) * 100  
+ Bowling Economy Rate = (Total Runs Conceded) / ((Balls Bowled / 6))  
+Bowling Strike Rate = (Total Balls Bowled) / (Total Wickets Taken)  
 
 Generate a SQL query to answer the following question from the user:
 "{query_str}"
