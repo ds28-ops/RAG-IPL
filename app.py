@@ -31,34 +31,29 @@ def get_ipl_stats_answer(user_query, db_path="ipl_data.db", openai_api_key=None)
     sql_prompt_template = PromptTemplate(
         input_variables=["query_str", "team_names", "all_table_declarations"],
         template="""
-You are a master cricket statistician with access to a cricket database and a master at SQL.
-You are given tables with data about IPL stats. There is a separate table for batting and bowling stats for each year like batting_stats_2012 and bowling_stats_2012 and so on for every year. There is also a matches table which has ball by ball data for every match played. historical_batting_stats and historical_bowling_stats have the overall stats including all the seasons. You do not have to use all the tables, use only the required ones.
-
-The team names are:
-{team_names}
-
-Here are the formulas for basic cricket statistics that you should use if relevant to the user's query:
-
-Batting Average = (Total Runs Scored) / (Number of Times Dismissed)  
-Batting Strike Rate = (Total Runs Scored / Total Balls Faced) * 100  
- Bowling Economy Rate = (Total Runs Conceded) / ((Balls Bowled / 6))  
-Bowling Strike Rate = (Total Balls Bowled) / (Total Wickets Taken)  
-
-Generate a SQL query to answer the following question from the user:
-"{query_str}"
-
-The SQL query should use only tables with the following SQL definitions:
-
-{all_table_declarations}
-
-Output only the raw SQL query string with NO ADDITIONAL FORMATTING and MARKDOWN.  
-Example output:
-```sql
-SELECT total_runs FROM historical_batting_stats WHERE player_name = 'MS Dhoni';
-
-Make sure you ONLY output an SQL query and no explanation.
-"""
-    )
+            You are a master cricket statistician with access to a cricket database and a master at SQL.
+            You are given tables with data about IPL stats. There is a separate table for batting and bowling stats for each year like batting_stats_2012 and bowling_stats_2012 and so on for every year. There is also a matches table which has ball by ball data for every match played. historical_batting_stats and historical_bowling_stats have the overall stats including all the seasons. You do not have to use all the tables, use only the required ones.
+            Here are the formulas for basic cricket statistics that you should use if relevant to the user's query:
+            
+            Batting Average = (Total Runs Scored) / (Number of Times Dismissed)  
+            Batting Strike Rate = (Total Runs Scored / Total Balls Faced) * 100  
+             Bowling Economy Rate = (Total Runs Conceded) / ((Balls Bowled / 6))  
+            Bowling Strike Rate = (Total Balls Bowled) / (Total Wickets Taken) 
+            The team names are:
+            {team_names}
+            
+            Generate a SQL query to answer the following question from the user:
+            "{query_str}"
+            
+            The SQL query should use only tables with the following SQL definitions:
+            
+            {all_table_declarations}
+            Output only the raw SQL query string with NO ADDITIONAL FORMATTING and MARKDOWN.
+            Example-
+            SELECT total_runs FROM historical_batting_stats WHERE player_name = 'MS Dhoni';
+            Make sure you ONLY output an SQL query and no explanation.
+            """
+                )
 
     # Create a ChatOpenAI instance
     llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4", temperature=0)
