@@ -100,6 +100,16 @@ WHERE season = 2023 AND balls_faced >= 100
 ORDER BY strike_rate DESC 
 LIMIT 5;
 Make sure you ONLY output an SQL query and no explanation.
+Example:
+SELECT 
+    striker, 
+    SUM(runs_off_bat) AS runs_scored, 
+    COUNT(ball_number) AS balls_faced, 
+    ROUND((SUM(runs_off_bat) * 100.0) / COUNT(ball_number), 2) AS strike_rate
+FROM match_ball_by_ball 
+WHERE striker = 'LS Livingstone' 
+  AND ball_number BETWEEN 15.1 AND 20.6 
+GROUP BY striker;
 """
     )
 
