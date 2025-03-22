@@ -1,82 +1,138 @@
-import streamlit as st
 import sqlite3
 import re
 import json
-from langchain_openai import ChatOpenAI  # Make sure you installed langchain-openai
+from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from rapidfuzz import process, fuzz
 
 def get_ipl_stats_answer(user_query, db_path="ipl_data.db", openai_api_key=None):
     if openai_api_key is None:
         raise ValueError("OpenAI API key is required")
-        
-    # Connect to the database and extract all CREATE TABLE statements
+
+    # ---------------------------
+    # HELPER FUNCTIONS
+    # ---------------------------
+
+    def get_all_players(db_path):
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT player_name FROM batting_stats
+            UNION
+            SELECT DISTINCT player_name FROM bowling_stats
+        """)
+        players = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return players
+
+    def extract_candidate_names(query):
+        # Looks for phrases like "Virat Kohli", "MS Dhoni"
+        matches = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', query)
+        return matches
+
+    def normalize_player_name_in_query(user_query, db_path, threshold=50):
+        db_names = get_all_players(db_path)
+        candidate_names = extract_candidate_names(user_query)
+        print(f"Candidate names: {candidate_names}")
+
+        for name in candidate_names:
+            match, score, _ = process.extractOne(name, db_names, scorer=fuzz.token_sort_ratio)
+            print(f"match: {match}, score: {score}")
+            if score >= threshold:
+                user_query = re.sub(rf'\b{re.escape(name)}\b', match, user_query)
+
+        return user_query
+
+    # ---------------------------
+    # CLEAN USER QUERY
+    # ---------------------------
+
+    clean_query = normalize_player_name_in_query(user_query, db_path)
+    print("Cleaned Query:", clean_query)
+
+    # ---------------------------
+    # LOAD SCHEMA & TEAM NAMES
+    # ---------------------------
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
     table_declarations = [row[0] + ";" for row in cursor.fetchall()]
-
-    # Remove SQL comments from declarations
-    def remove_sql_comments(declarations):
-        return [re.sub(r'--.*?($|\n)', r'\1', d) for d in declarations]
-    table_declarations = remove_sql_comments(table_declarations)
+    table_declarations = [re.sub(r'--.*?($|\n)', r'\1', d) for d in table_declarations]
     all_table_declarations = "\n".join(table_declarations)
-    
-    # Retrieve distinct team names from the matches table
-    team_query = "SELECT DISTINCT(batting_team) FROM matches"
+
+    team_query = "SELECT DISTINCT(batting_team) FROM match_ball_by_ball"
     team_names = cursor.execute(team_query).fetchall()
     conn.close()
 
-    # Define the prompt template for generating the SQL query
+    # ---------------------------
+    # PROMPT TEMPLATE - SQL
+    # ---------------------------
+
     sql_prompt_template = PromptTemplate(
         input_variables=["query_str", "team_names", "all_table_declarations"],
         template="""
-            You are a master cricket statistician with access to a cricket database and a master at SQL.
-            You are given tables with data about IPL stats. There is a separate table for batting and bowling stats for each year like batting_stats_2012 and bowling_stats_2012 and so on for every year. There is also a matches table which has ball by ball data for every match played. historical_batting_stats and historical_bowling_stats have the overall stats including all the seasons. You do not have to use all the tables, use only the required ones.
-            Here are the formulas for basic cricket statistics that you should use if relevant to the user's query:
-            
-            Batting Average = (Total Runs Scored) / (Number of Times Dismissed)  
-            Batting Strike Rate = (Total Runs Scored / Total Balls Faced) * 100  
-             Bowling Economy Rate = (Total Runs Conceded) / ((Balls Bowled / 6))  
-            Bowling Strike Rate = (Total Balls Bowled) / (Total Wickets Taken) 
-            The team names are:
-            {team_names}
-            
-            Generate a SQL query to answer the following question from the user:
-            "{query_str}"
-            
-            The SQL query should use only tables with the following SQL definitions:
-            
-            {all_table_declarations}
-            Output only the raw SQL query string with NO ADDITIONAL FORMATTING and MARKDOWN.
-            Example-
-            SELECT total_runs FROM historical_batting_stats WHERE player_name = 'MS Dhoni';
-            Make sure you ONLY output an SQL query and no explanation.
-            """
-                )
+You are a master cricket statistician with access to a cricket database and a master at SQL.
+You are given tables with data about IPL stats. batting_stats and bowling_stats has season wise batting and bowling stats. match_ball_by_ball has ball by ball information for all the matches. There are other tables as shown in the sql table definitions below. You do not have to use all the tables, use only the required ones.
+Here are the formulas for basic cricket statistics that you should use if relevant to the user's query:
 
-    # Create a ChatOpenAI instance
+Batting Average = (Total Runs Scored) / (Number of Times Dismissed)  
+Batting Strike Rate = (Total Runs Scored / Total Balls Faced) * 100  
+Bowling Economy Rate = (Total Runs Conceded) / ((Balls Bowled / 6))  
+Bowling Strike Rate = (Total Balls Bowled) / (Total Wickets Taken)
+
+The team names are:
+{team_names}
+
+Generate a SQL query to answer the following question from the user:
+"{query_str}"
+
+The SQL query should use only tables with the following SQL definitions:
+
+{all_table_declarations}
+Output only the raw SQL query string with NO ADDITIONAL FORMATTING and MARKDOWN.
+Example:
+SELECT player_name, strike_rate 
+FROM batting_stats 
+WHERE season = 2023 AND balls_faced >= 100 
+ORDER BY strike_rate DESC 
+LIMIT 5;
+Make sure you ONLY output an SQL query and no explanation.
+"""
+    )
+
+    # ---------------------------
+    # GENERATE SQL QUERY
+    # ---------------------------
+
     llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4", temperature=0)
-    
-    # Build the SQL generation chain and invoke it
     sql_chain = LLMChain(llm=llm, prompt=sql_prompt_template)
     sql_chain_output = sql_chain.invoke({
-        "query_str": user_query,
+        "query_str": clean_query,
         "team_names": team_names,
         "all_table_declarations": all_table_declarations
     })
-    if isinstance(sql_chain_output, dict):
-        sql_query = sql_chain_output.get("text", "").strip()
-    else:
-        sql_query = sql_chain_output.strip()
-    
-    # Execute the generated SQL query on the database
+    sql_query = sql_chain_output.get("text", "").strip() if isinstance(sql_chain_output, dict) else sql_chain_output.strip()
+    print("Generated SQL Query:", sql_query)
+
+    # ---------------------------
+    # EXECUTE SQL
+    # ---------------------------
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    sql_result = cursor.execute(sql_query).fetchall()
+    try:
+        sql_result = cursor.execute(sql_query).fetchall()
+    except Exception as e:
+        conn.close()
+        return f"SQL Error: {e}"
     conn.close()
-    
-    # Define the prompt template for generating the final natural language answer
+
+    # ---------------------------
+    # GENERATE FINAL ANSWER
+    # ---------------------------
+
     answer_prompt_template = PromptTemplate(
         input_variables=["query_str", "json_table", "sql_query"],
         template="""
@@ -97,20 +153,19 @@ table does not provide the information to answer the question, answer
 "No Information".
 """
     )
-    
-    # Build the final answer chain and invoke it
+
     answer_chain = LLMChain(llm=llm, prompt=answer_prompt_template)
     answer_chain_output = answer_chain.invoke({
-        "query_str": user_query,
+        "query_str": user_query,  # original uncleaned user query
         "json_table": json.dumps(sql_result),
         "sql_query": sql_query
     })
-    if isinstance(answer_chain_output, dict):
-        final_answer = answer_chain_output.get("text", "").strip()
-    else:
-        final_answer = answer_chain_output.strip()
-    
+    final_answer = answer_chain_output.get("text", "").strip() if isinstance(answer_chain_output, dict) else answer_chain_output.strip()
+
     return final_answer
+          
+            
+
 
 # Streamlit App Interface
 st.title("IPL Stats Chatbot")
